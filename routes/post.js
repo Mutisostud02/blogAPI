@@ -43,6 +43,12 @@ postRoutes.get('/', async (req, res, next) => {
                 title: true,
                 content: true,
                 created_at: true,
+                published: true,
+                _count: {
+                    select: {
+                        comments: true
+                    }
+                }
             }
         })
 
@@ -61,7 +67,12 @@ postRoutes.get('/admin', authenticateToken, requireAdmin, async (req, res, next)
                 title: true,
                 content: true,
                 created_at: true,
-                published: true                
+                published: true,
+                _count: {
+                    select: {
+                        comments: true
+                    }
+                }               
             }
         })
 
