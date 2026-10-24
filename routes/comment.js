@@ -51,7 +51,12 @@ postCommentsRouter.post('/:id/comments', authenticateToken, async (req, res, nex
                 authorId: true,
                 content: true,
                 postId: true,
-                created_at: true
+                created_at: true,
+                author: {
+                    select: {
+                        username: true
+                    }
+                }
             }
         })
 
