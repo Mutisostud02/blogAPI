@@ -1,23 +1,72 @@
 const { prisma } = require('../lib/prisma')
 const authenticateToken = require('../middleware/authenticateToken')
 const requireAdmin = require('../middleware/requireAdmin')
+const multer = require('multer')
+const fs = require('fs/promises')
+const cloudinary = require('../lib/cloudinary')
+// ***change this to upload to a image service
 
 const postRoutes = require('express').Router()
 
+//multer upload config
+const upload = multer({
+    dest: "uploads/",
+    limits: {
+        fileSize: 10 * 1024 * 1024
+    },
+    fileFilter(req, file, cb) {
+        const allowedMimeTypes = [
+            "image/jpeg",
+            "image/png",
+            "image/webp"
+        ];
+
+        if (allowedMimeTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error("Only JPEG, PNG, and WebP images are allowed"));
+        }
+    }
+});
+
 //CREATE post
-postRoutes.post('/', authenticateToken, requireAdmin, async (req, res, next) => {
+postRoutes.post('/', upload.single('image'), authenticateToken, requireAdmin, async (req, res, next) => {
     try {
         const { title, content } = req.body;
+
         if (!title?.trim() || !content?.trim()) {
             return res.status(400).json({
                 msg: "Title and content are required!"
             });
+        }
+        let imageUrl = null;
+        let publicId = null;
+
+        if (req.file) {
+            try {
+                const result = await cloudinary.uploader.upload(
+                    req.file.path,
+                    {
+                        resource_type: "image",
+                        folder: "blog-posts"
+                    }
+                );
+
+                imageUrl = result.secure_url;
+                publicId = result.public_id;
+
+
+            } finally {
+                await fs.unlink(req.file.path).catch(() => {});
+            }
         }
 
         const post = await prisma.post.create({
             data: {
                 title,
                 content,
+                image_url: imageUrl,
+                image_public_id: publicId,
                 authorId: req.user.id
             }
         });
@@ -44,6 +93,7 @@ postRoutes.get('/', async (req, res, next) => {
                 content: true,
                 created_at: true,
                 published: true,
+                image_url: true,
                 _count: {
                     select: {
                         comments: true
@@ -58,7 +108,7 @@ postRoutes.get('/', async (req, res, next) => {
     }
 })
 
-//READ/GET admin posts
+//READ/GET posts as admin
 postRoutes.get('/admin', authenticateToken, requireAdmin, async (req, res, next) => {
     try {
         const allPosts = await prisma.post.findMany({
@@ -68,16 +118,13 @@ postRoutes.get('/admin', authenticateToken, requireAdmin, async (req, res, next)
                 content: true,
                 created_at: true,
                 published: true,
-                _count: {
-                    select: {
-                        comments: true
-                    }
-                }               
+                image_url: true,            
             }
         })
 
         return res.status(200).json({allPosts})
     } catch(err) {
+        console.error("GET /posts/admin error:", err)
         next(err)
     }
 })
@@ -101,6 +148,13 @@ postRoutes.get('/:id', async (req, res, next) => {
                 title: true,
                 content: true,
                 created_at: true,
+                published: true,
+                image_url: true,
+                _count: {
+                    select: {
+                        comments: true
+                    }
+                }
             }
         })
 
@@ -196,11 +250,28 @@ postRoutes.delete('/:id', authenticateToken, requireAdmin, async (req, res, next
             });
         }
 
+        const post =  await prisma.post.findUnique({
+            where: {
+                id: postId
+            }
+        })
+
+        if (!post) {
+            return res.status(404).json({
+                msg: "Post not found!"
+            })
+        }
+
+        if (post.image_public_id) {
+            await cloudinary.uploader.destroy(post.image_public_id);
+        }
+
         await prisma.post.delete({
             where: {
                 id: postId
             }
         })
+
 
         return res.status(204).send()
     } catch(err) {
