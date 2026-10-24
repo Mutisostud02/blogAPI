@@ -28,6 +28,9 @@ model Post {
   title String
   content String
 
+  image_url String?
+  image_public_id String?
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   published Boolean @default(false)
