@@ -78,10 +78,12 @@ postRoutes.post('/', upload.single('image'), authenticateToken, requireAdmin, as
         
     } catch(err) {
         console.error("POST /posts ERROR:", err);
+        console.error("ERROR NAME:", err.name);
         console.error("ERROR MESSAGE:", err.message);
-        console.error("CLOUDINARY ERROR:", err.error);
-            next(err)
-        }
+        console.error("HTTP CODE:", err.http_code);
+        console.error("ERROR DETAILS:", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+        next(err)
+    }
 
 })
 
