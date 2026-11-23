@@ -52,6 +52,8 @@ postRoutes.post('/', upload.single('image'), authenticateToken, requireAdmin, as
                     }
                 );
 
+                console.log("CLOUDINARY UPLOAD SUCCESS:", result.secure_url);
+
                 imageUrl = result.secure_url;
                 publicId = result.public_id;
 
@@ -75,8 +77,11 @@ postRoutes.post('/', upload.single('image'), authenticateToken, requireAdmin, as
 
         
     } catch(err) {
-        next(err)
-    }
+        console.error("POST /posts ERROR:", err);
+        console.error("ERROR MESSAGE:", err.message);
+        console.error("CLOUDINARY ERROR:", err.error);
+            next(err)
+        }
 
 })
 
